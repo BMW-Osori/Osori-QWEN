@@ -17,3 +17,11 @@ sh deploy_chat.sh adapters <작업 폴더>        # 약 5분, 환경 변수 SSH_
 후보를 점검한 뒤 AI 서버에서 교체합니다: `ollama cp safety-chat safety-chat:prev && ollama cp safety-chat:candidate safety-chat`
 
 참고 데이터 줄의 문구(`web/server.py` 의 `facts`)를 바꾸면 모델이 값을 잘못 옮길 수 있으니 다시 학습하세요.
+
+## 함께 쓰는 저장소
+
+| 저장소 | 역할 |
+| --- | --- |
+| [Osori-BE](https://github.com/BMW-Osori/Osori-BE) | 백엔드 (Spring Boot, PostgreSQL) |
+| [Osori-Presentation](https://github.com/BMW-Osori/Osori-Presentation) | 시연 사이트와 AI 서비스 |
+| [Osori-FE](https://github.com/BMW-Osori/Osori-FE) | 앱 (Flutter) |
