@@ -31,6 +31,7 @@ class Clock(datetime):  # 참고 데이터의 기준 시각을 시나리오마�
 server.datetime = Clock
 ZONES = [{"riskZoneId": i, **z} for i, z in enumerate(json.loads((WEB.parent / "deploy" / "risk-zones.json").read_text()), 1)]
 CITIES = ["경기도 성남시", "서울특별시 강남구", "부산광역시", "대구광역시", "경기도 수원시"]
+RECENT_QS = ["최근 마지막 데이터 알려줘", "마지막 감지 기록 알려줘", "가장 최근 감지된 곳 어디야?", "최근 데이터 알려줘", "최신 감지 보여줘", "마지막으로 감지된 거 뭐야?"]
 hhmm = lambda t: t[11:16]
 GUIDE = {
     "HIGH": ["즉시 걸음을 멈추고 앞뒤 차량을 확인하세요.", "이어폰을 빼거나 볼륨을 최소로 낮추세요.", "인도 안쪽이나 건물 쪽으로 이동해 차량과 거리를 두세요."],
@@ -343,6 +344,48 @@ def event_answer(e, zone):
 {{NOTE}}"""
 
 
+def recent_answer(events, grouped):
+    if not events:
+        return f"""## 🕒 최근 감지 기록
+
+> 💡 아직 감지 기록이 **0건**입니다.
+
+### ✅ 행동 가이드
+
+{guide("LOW")}
+
+---
+{{NOTE}}"""
+    e = events[-1]
+    zone = {e["eventId"]: name for name, es in grouped.items() for e in es}.get(e["eventId"])
+    at = f"{e['startedAt'][5:10]} {hhmm(e['startedAt'])}"
+    return f"""## 🕒 최근 감지 기록
+
+> 💡 가장 최근 감지는 **{at}** {zone or '사고다발지역 밖'}에서 난 **{e['alertLevel']}**입니다.
+
+### 📊 감지 정보
+
+| 항목 | 값 |
+| --- | --- |
+| 시각 | {at} |
+| 위치 | {zone or '구역 밖'} |
+| 추정 거리 | {e['minEstimatedDistance']}m |
+| 신호 세기 (RSSI) | {e['maxRssi']}dBm |
+| 연속 감지 | {e['consecutiveCount']}회 |
+| 경고 단계 | {e['alertLevel']} |
+
+### ⚠️ 알아 두세요
+
+'구역 밖'은 사고다발지역으로 등록되지 않은 곳이지만, 저소음 차량은 어디서든 다가올 수 있습니다. 다른 감지 기록은 구역 이름으로 물어보세요.
+
+### ✅ 행동 가이드
+
+{guide("HIGH" if e["alertLevel"] == "DANGER" else "MEDIUM")}
+
+---
+{{NOTE}}"""
+
+
 def no_data(place):
     return f"""## 📍 {place} 데이터 없음
 
@@ -445,9 +488,18 @@ for n, city in enumerate(CITIES):
     add("제일 위험한 구역 어디야?", top_answer(live, grouped), ZONES, events)
     add("전체 현황 요약해줘", summary_answer(ZONES, events, burst), ZONES, events)
     add("언제 제일 위험해?", hours_answer(events), ZONES, events)
+    # 최근 감지: 그대로 / 동시 다발 구역에 다시 감지 / 구역 밖 + 동시 다발 구역. 동시 다발 줄의 시각을 감지 시각으로 옮기지 않게
+    hot = next(by_name[b["zone"]] for b in bursts(ZONES, events) if b["zone"] in by_name) if burst else hit[0]
+    again = lambda at, i, minutes: {**here_event(at, n * 10 + i), "eventId": 950 + i, "startedAt": (Clock.current - timedelta(minutes=minutes)).isoformat()}
+    for k, extra in enumerate(([], [again((hot["latitude"], hot["longitude"]), i, 20 + 25 * i) for i in range(2)],
+                               [again(sea, 0, 4), again((hot["latitude"], hot["longitude"]), 1, 30)])):
+        recent = sorted(events + extra, key=lambda e: e["startedAt"])
+        add(RECENT_QS[(n * 3 + k) % len(RECENT_QS)], recent_answer(recent, events_by_zone(ZONES, recent)), ZONES, recent)
     e = next(e for e in events if grouped[hit[0]["name"]] and e in grouped[hit[0]["name"]])
     if spot := spot_of(hit[0]):
         add(f"{spot}에서 거리 {e['minEstimatedDistance']}m, RSSI {e['maxRssi']}dBm으로 {e['consecutiveCount']}회 연속 감지됐어. 얼마나 위험해?", event_answer(e, hit[0]), ZONES, events)
+
+add("최근 데이터 알려줘", recent_answer([], {}), ZONES, [])  # 감지가 하나도 없을 때
 
 # 데이터 답변의 숫자는 전부 참고 데이터나 질문에 있어야 함 (없으면 모델이 지어냄)
 for ex in examples:
