@@ -8,7 +8,7 @@ MODEL=mlx-community/Qwen2.5-3B-Instruct-4bit
 # 인자 없이 실행하면 예시 데이터로, 있으면 그 폴더의 train/valid.jsonl 로 학습 (ai/worker.py): train.sh <데이터> <어댑터> <반복 수>
 DATA=${1:-data}
 ADAPTERS=${2:-adapters}
-ITERS=${3:-220}
+ITERS=${3:-430}  # 예시 166개 × 약 2.6회
 [ -n "$1" ] || python3 make_chat_dataset.py
 python3 -m mlx_lm lora --model "$MODEL" --train --data "$DATA" --adapter-path "$ADAPTERS" \
   --iters "$ITERS" --batch-size 1 --num-layers 16 --grad-checkpoint --learning-rate 1e-4 --mask-prompt \

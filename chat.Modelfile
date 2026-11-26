@@ -1,4 +1,4 @@
-# 대화 모델. FROM 은 ai/export_gguf.sh 결과를 q4_K_M 으로 양자화한 GGUF. TEMPLATE 은 qwen2.5:3b 와 동일.
+# AI 분석 모델. FROM 은 ai/export_gguf.sh 결과를 q4_0 으로 양자화한 GGUF (ARM 재배치). TEMPLATE 은 qwen2.5:3b 와 동일.
 # ollama create safety-chat -f chat.Modelfile
 FROM ./safety-chat.gguf
 TEMPLATE """{{- if .Messages }}
