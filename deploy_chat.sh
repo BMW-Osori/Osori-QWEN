@@ -1,6 +1,7 @@
 #!/bin/sh
 # 튜닝 결과를 AI 서버의 후보 모델로 올림 (운영 모델은 그대로): ai/deploy_chat.sh <어댑터 폴더> <작업 폴더>
-# 어댑터 → GGUF f16 → q4_K_M(임시 Ollama) → 백엔드를 거쳐 AI 서버로 복사 → safety-chat:candidate 생성
+# 어댑터 → GGUF f16 → q4_0(임시 Ollama) → 백엔드를 거쳐 AI 서버로 복사 → safety-chat:candidate 생성
+# q4_0: AI 서버(t4g, ARM)는 q4_0 만 전용 커널로 재배치해 돌려 q4_K_M 보다 프롬프트 1.5배·생성 1.2배 빠름 (2026-11-26 측정)
 # 점검 뒤 교체: ssh AI 서버 'ollama cp safety-chat safety-chat:prev && ollama cp safety-chat:candidate safety-chat'
 set -e
 ADAPTERS=$(cd "$1" && pwd)
@@ -21,7 +22,7 @@ SERVER=$!
 trap 'kill $SERVER 2>/dev/null' EXIT
 until ollama list >/dev/null 2>&1; do sleep 1; done
 echo "FROM $WORK/safety-chat-f16.gguf" > "$WORK/q.Modelfile"
-ollama create tmp --quantize q4_K_M -f "$WORK/q.Modelfile"
+ollama create tmp --quantize q4_0 -f "$WORK/q.Modelfile"
 kill $SERVER; trap - EXIT
 DIGEST=$(python3 -c "import json,sys; print(next(l['digest'] for l in json.load(open(sys.argv[1]))['layers'] if l['mediaType'].endswith('.model')))" "$OLLAMA_MODELS/manifests/registry.ollama.ai/library/tmp/latest")
 BLOB="$OLLAMA_MODELS/blobs/$(echo "$DIGEST" | tr ':' '-')"
